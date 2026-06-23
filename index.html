@@ -6,7 +6,7 @@
     <title>抖音原画质下载</title>
     <script>
         // 改成相对路径后，前端会直接请求 Vercel 节点，再由 Vercel 转发给 Worker，完美绕过封锁
-const MY_WORKER_GATEWAY = window.location.origin + "/api";
+const MY_WORKER_GATEWAY = "https://summer-rice-dc84.yuicec.workers.dev";
 
         // 大白话切割法：完美提取 作者 + 文案
         function extractMetaFromText(text) {
