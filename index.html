@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抖音原画质下载</title>
+    <script>
+        // 改成相对路径后，前端会直接请求 Vercel 节点，再由 Vercel 转发给 Worker，完美绕过封锁
+const MY_WORKER_GATEWAY = window.location.origin + "/api";
+
+        // 大白话切割法：完美提取 作者 + 文案
+        function extractMetaFromText(text) {
+            let author = "抖音创作者";
+            let title = "原画质视频";
+
+            // 1. 精准切出作者：拿 【 和 的作品/的图文 之间纯净的名字
+            const authorMatch = text.match(/【(.*?)的(?:作品|图文)】/);
+            if (authorMatch && authorMatch[1]) {
+                author = authorMatch[1].trim();
+            }
+
+            // 2. 精准切出文案：拿 】 后面直到 http 之前的所有干净文本
+            const titleMatch = text.match(/】(.*?)(?=\s*https?:\/\/)/);
+            if (titleMatch && titleMatch[1]) {
+                title = titleMatch[1].trim();
+            } else {
+                // 兜底：如果文本里没找到网址，就直接拿 】 后面的所有文本
+                const fallbackMatch = text.match(/】(.*)/);
+                if (fallbackMatch && fallbackMatch[1]) {
+                    title = fallbackMatch[1].trim();
+                }
+            }
+
+            // 3. 过滤掉文件名中的非法特殊字符
+            let safeFilename = `${author} - ${title}`
+                .replace(/[\\/:*?"<>|]/g, "_")
+                .replace(/\s+/g, " ")
+                .trim();
+                
+            // 限制文件名的最大长度防止系统报错
+            return safeFilename.length > 60 ? safeFilename.substring(0, 60) + "..." : safeFilename;
+        }
+
+        async function startParse() {
+            const inputUrl = document.getElementById('inputUrl').value.trim();
+            const parseBtn = document.getElementById('parseBtn');
+            const resultCard = document.getElementById('resultCard');
+            
+            if (!inputUrl) {
+                alert("请先粘贴抖音分享文案或链接！");
+                return;
+            }
+
+            parseBtn.disabled = true;
+            parseBtn.innerText = "正在解析中...";
+            resultCard.classList.remove('show');
+
+            // 提取纯净的文件名 (作者 - 文案)
+            const customFilename = extractMetaFromText(inputUrl);
+
+            try {
+                // 将清洗好的标准文件名直接作为参数，连同链接一起发送给你自己的 Worker
+                const response = await fetch(`${MY_WORKER_GATEWAY}/?url=${encodeURIComponent(inputUrl)}&filename=${encodeURIComponent(customFilename)}`);
+                const result = await response.json();
+
+                if (result.code === 0 && result.data.video_list.length > 0) {
+                    document.getElementById('vId').innerText = result.data.video_id || "-";
+                    document.getElementById('vLevel').innerText = result.data.video_list[0].level || "原画 1080P";
+                    
+                    // 后端下载链接已注入完美的中文文件名
+                    document.getElementById('downloadLink').href = result.data.video_list[0].url;
+                    
+                    resultCard.classList.add('show');
+                } else {
+                    alert("解析失败：" + (result.msg || "视频状态异常"));
+                }
+            } catch (e) {
+                alert("网络连接失败，请确保网关地址在国内未被阻断。");
+                console.error(e);
+            } finally {
+                parseBtn.disabled = false;
+                parseBtn.innerText = "立即解析";
+            }
+        }
+    </script>
+    <style>
+        :root { --primary: #4f46e5; --primary-hover: #4338ca; --success: #10b981; --background: #f8fafc; --card-bg: #ffffff; --text: #0f172a; }
+        * { box-shadow: none; box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--background); color: var(--text); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        .container { max-width: 500px; width: 100%; background: var(--card-bg); padding: 30px; border-radius: 24px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); }
+        .title { font-size: 24px; font-weight: 700; text-align: center; margin-bottom: 24px; letter-spacing: -0.5px; }
+        textarea { width: 100%; height: 110px; padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px; resize: none; font-size: 14px; outline: none; transition: border-color 0.2s; color: #334155; line-height: 1.5; }
+        textarea:focus { border-color: var(--primary); }
+        .btn { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 16px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 16px; transition: background 0.2s; }
+        .btn:hover { background: var(--primary-hover); }
+        .btn:disabled { background: #cbd5e1; cursor: not-allowed; }
+        .result-card { display: none; margin-top: 24px; padding: 20px; background: #f1f5f9; border-radius: 16px; animation: fadeIn 0.3s ease-in-out; }
+        .result-card.show { display: block; }
+        .video-info { margin-bottom: 16px; font-size: 14px; color: #64748b; line-height: 1.6; }
+        .btn-success { display: block; width: 100%; padding: 14px; background: var(--success); color: white; text-align: center; text-decoration: none; border-radius: 16px; font-weight: 600; transition: opacity 0.2s; }
+        .btn-success:hover { opacity: 0.9; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="title">抖音原画质下载</div>
+    <textarea id="inputUrl" placeholder="请在此粘贴抖音分享文案或链接..."></textarea>
+    <button id="parseBtn" class="btn" onclick="startParse()">立即解析</button>
+    <div id="resultCard" class="result-card">
+        <div class="video-info">
+            <p>视频ID: <span id="vId" style="color:#0f172a; font-family: monospace;">-</span></p>
+            <p>检测画质: <span id="vLevel" style="color:var(--success); font-weight:600;">-</span></p>
+        </div>
+        <a id="downloadLink" class="btn-success" href="#" target="_blank">🚀 极速下载原画视频</a>
+    </div>
+</div>
+</body>
+</html>

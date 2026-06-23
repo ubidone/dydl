@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://summer-rice-dc84.yuicec.workers.dev/:path*"
+    }
+  ]
+}
